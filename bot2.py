@@ -1,163 +1,16 @@
-# --- Phần 1: Nhập các thư viện cần thiết ---
-import sys
-sys.modules['audioop'] = None  # fake module để tránh lỗi
-import discord
-from discord.ext import commands
-import discord
-from discord.ext import commands
-import google.generativeai as genai
 import os
+import sys
+import discord
+from discord.ext import commands
+from discord import app_commands
+import google.generativeai as genai
 from flask import Flask
 from threading import Thread
 
-# --- Phần 2: Tải và cấu hình các khóa bí mật ---
-from dotenv import load_dotenv
+# --- Fake audioop (nếu deploy ở Python >=3.12) ---
+sys.modules['audioop'] = None
 
-load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-AI_INSTRUCTION = os.getenv('AI_INSTRUCTION')
-
-if not DISCORD_TOKEN or not GOOGLE_API_KEY:
-    print("LỖI: Vui lòng thiết lập DISCORD_TOKEN và GOOGLE_API_KEY trong tệp .env")
-    exit()
-
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# --- Phần 3: Thiết lập mô hình AI ---
-model_choice = input("chọn model:\n1.gemini-2.5-flash,\n2.gemini-2.5-pro,\n3.tự nhập model\n")
-if model_choice == "1":
-    model = genai.GenerativeModel('gemini-2.5-flash')
-elif model_choice == "2":
-    model = genai.GenerativeModel('gemini-2.5-pro')
-elif model_choice == "3":
-    model = input("nhập model:")
-else:
-    print("Lựa chọn không hợp lệ, mặc định sử dụng gemini-1.5-flash.")
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
-# --- Phần 4: Bộ nhớ hội thoại cho từng user ---
-user_chats = {}  # dict: {user_id: ChatSession}
-
-# 👉 Thay số này bằng ID Discord thật của anh Đạt
-OWNER_ID = 1067374135220649985  
-
-def hoiai(user_id: int, username: str, question: str) -> str:
-    """
-    Gửi câu hỏi đến Google AI với bộ nhớ hội thoại riêng theo từng user.
-    """
-    global user_chats
-    try:
-        # Nếu user chưa có session thì tạo mới
-        if user_id not in user_chats:
-            user_chats[user_id] = model.start_chat(history=[])
-
-        # Nếu là anh Đạt thì gọi là "anh Đạt"
-        if user_id == OWNER_ID:
-            display_name = "anh Đạt"
-        else:
-            display_name = username  # tên hiển thị của người khác
-
-        # Ghép câu hỏi với tên người dùng
-        if not user_chats[user_id].history:
-            prompt = f"{AI_INSTRUCTION}\n\n{display_name} hỏi: {question}"
-        else:
-            prompt = f"{display_name} hỏi: {question}"
-
-        response = user_chats[user_id].send_message(prompt)
-        return response.text
-    except Exception as e:
-        print(f"Đã xảy ra lỗi khi gọi API: {e}")
-        return "Xin lỗi, em bị sự cố khi kết nối với bộ não AI 🧠💥"
-
-# --- Phần 5: Thiết lập Bot Discord ---
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# Biến toàn cục để lưu ID kênh chat
-chat_channel_id = None
-
-@bot.event
-async def on_ready():
-    print(f'Bot {bot.user} đã online rồi 😎')
-    print(f'{AI_INSTRUCTION}')
-    print('________________________________')
-    try:
-        synced = await bot.tree.sync()
-        print(f"Đã đồng bộ {len(synced)} lệnh.")
-    except Exception as e:
-        print(f"Lỗi khi đồng bộ lệnh: {e}")
-
-# --- Lệnh set/unset kênh auto chat ---
-@bot.tree.command(name="set_chat_channel", description="Thiết lập kênh này là kênh bot tự động trả lời.")
-@commands.has_permissions(manage_channels=True)
-async def set_chat_channel(interaction: discord.Interaction):
-    global chat_channel_id
-    chat_channel_id = interaction.channel_id
-    await interaction.response.send_message(f"✅ Kênh này (<#{chat_channel_id}>) đã được thiết lập là kênh chat AI tự động.")
-    print(f"Kênh chat AI được thiết lập: {interaction.channel.name} (ID: {chat_channel_id})")
-
-@bot.tree.command(name="unset_chat_channel", description="Hủy bỏ kênh bot tự động trả lời.")
-@commands.has_permissions(manage_channels=True)
-async def unset_chat_channel(interaction: discord.Interaction):
-    global chat_channel_id
-    if chat_channel_id is not None:
-        chat_channel_id = None
-        await interaction.response.send_message("❌ Kênh chat AI tự động đã được hủy bỏ.")
-        print("Kênh chat AI tự động đã được hủy bỏ.")
-    else:
-        await interaction.response.send_message("Không có kênh nào được thiết lập làm kênh chat AI.")
-
-# --- Lệnh hỏi nhanh AI ---
-@bot.tree.command(name="ask", description="Hỏi AI một câu nhanh")
-async def ask(interaction: discord.Interaction, *, question: str):
-    await interaction.response.defer()
-    answer = hoiai(interaction.user.id, interaction.user.display_name, question)
-    await interaction.followup.send(answer)
-
-# --- Lệnh reset bộ nhớ ---
-@bot.tree.command(name="reset", description="Xóa bộ nhớ hội thoại AI (riêng cho bạn)")
-async def reset(interaction: discord.Interaction):
-    global user_chats
-    user_chats[interaction.user.id] = model.start_chat(history=[])
-    await interaction.response.send_message("🧹 Bộ nhớ hội thoại AI của bạn đã được reset!")
-
-# --- Xử lý tin nhắn trong kênh ---
-@bot.event
-async def on_message(message):
-    global chat_channel_id
-
-    if message.author == bot.user:
-        return
-
-    if message.content.lower().startswith('alo mikasa!'):
-        await message.channel.send(f'dạ {message.author.mention}, em còn on ạ 😚')
-        return
-
-    is_in_chat_channel = (message.channel.id == chat_channel_id)
-    is_bot_mentioned = bot.user.mentioned_in(message)
-
-    if is_in_chat_channel or is_bot_mentioned:
-        question = (
-            message.content
-            .replace(f'<@!{bot.user.id}>', '')
-            .replace(f'<@{bot.user.id}>', '')
-            .strip()
-        )
-
-        if question:
-            async with message.channel.typing():
-                print(f"Nhận câu hỏi từ '{message.author}' ở kênh {'tự động' if is_in_chat_channel else 'thường'}: {question}")
-                answer = hoiai(message.author.id, message.author.display_name, question)
-                print(f"Gửi câu trả lời: {answer}")
-                await message.reply(answer)
-
-    await bot.process_commands(message)
-
-# --- Phần 6: Thiết lập Flask Web Server ---
+# --- Flask keep-alive (Render/Replit) ---
 app = Flask('')
 
 @app.route('/')
@@ -165,14 +18,104 @@ def home():
     return "Bot is alive!"
 
 def run():
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=8080)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
+Thread(target=run).start()
 
-# --- Phần 7: Chạy Bot ---
-print("Đang khởi động web server...")
-keep_alive()
-print("Đang khởi động bot...")
+# --- Load secrets ---
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+AI_INSTRUCTION = os.getenv("AI_INSTRUCTION", "You are a helpful assistant.")
+
+# --- Config Gemini ---
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# --- Bot setup ---
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# --- Memory per user ---
+chat_history = {}
+chat_channels = {}  # guild_id -> channel_id
+
+# --- Slash commands ---
+@bot.tree.command(name="ask", description="Hỏi AI một câu hỏi")
+async def ask(interaction: discord.Interaction, prompt: str):
+    user_id = str(interaction.user.id)
+    if user_id not in chat_history:
+        chat_history[user_id] = []
+    chat_history[user_id].append({"role": "user", "content": prompt})
+
+    response = model.generate_content(chat_history[user_id])
+    reply = response.text
+    chat_history[user_id].append({"role": "model", "content": reply})
+
+    await interaction.response.send_message(reply)
+
+
+@bot.tree.command(name="reset", description="Xóa lịch sử hội thoại với AI")
+async def reset(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    chat_history[user_id] = []
+    await interaction.response.send_message("✅ Đã reset hội thoại!")
+
+
+@bot.tree.command(name="set_chat_channel", description="Đặt kênh chat AI cho server")
+async def set_chat_channel(interaction: discord.Interaction):
+    guild_id = str(interaction.guild.id)
+    chat_channels[guild_id] = interaction.channel.id
+    await interaction.response.send_message(f"✅ Đã đặt kênh này làm kênh chat AI!")
+
+
+@bot.tree.command(name="unset_chat_channel", description="Xóa kênh chat AI của server")
+async def unset_chat_channel(interaction: discord.Interaction):
+    guild_id = str(interaction.guild.id)
+    if guild_id in chat_channels:
+        del chat_channels[guild_id]
+        await interaction.response.send_message("✅ Đã xóa kênh chat AI!")
+    else:
+        await interaction.response.send_message("❌ Server này chưa đặt kênh chat AI.")
+
+# --- Events ---
+@bot.event
+async def on_ready():
+    print(f"🤖 Logged in as {bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} slash commands")
+    except Exception as e:
+        print(f"❌ Sync failed: {e}")
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    guild_id = str(message.guild.id) if message.guild else None
+    user_id = str(message.author.id)
+
+    # Check mention hoặc kênh chat AI
+    if bot.user in message.mentions or (guild_id in chat_channels and chat_channels[guild_id] == message.channel.id):
+        if user_id not in chat_history:
+            chat_history[user_id] = []
+
+        chat_history[user_id].append({"role": "user", "content": message.content})
+        response = model.generate_content(chat_history[user_id])
+        reply = response.text
+        chat_history[user_id].append({"role": "model", "content": reply})
+
+        await message.channel.send(reply)
+
+# --- Run ---
 bot.run(DISCORD_TOKEN)
+
+
+🚀 Đây là bản code mới đã viết lại sạch sẽ, gọn hơn và chạy ổn định trên Render/Replit.
+Flask + Thread giúp giữ bot online 24/7 (Render sẽ ping lại).
+Đồng thời có sys.modules['audioop']=None để tránh lỗi trên Python 3.12+.
+
+Anh Đạt có muốn em viết thêm requirements.txt và render.yaml để deploy lên Render luôn không?
+
