@@ -23,17 +23,7 @@ if not DISCORD_TOKEN or not GOOGLE_API_KEY:
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # --- Phần 3: Thiết lập mô hình AI ---
-model_choice = input("chọn model:\n1.gemini-2.5-flash,\n2.gemini-2.5-pro,\n3.tự nhập model\n")
-if model_choice == "1":
-    model = genai.GenerativeModel('gemini-2.5-flash')
-elif model_choice == "2":
-    model = genai.GenerativeModel('gemini-2.5-pro')
-elif model_choice == "3":
-    model = input("nhập model:")
-else:
-    print("Lựa chọn không hợp lệ, mặc định sử dụng gemini-1.5-flash.")
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
+model = genai.GenerativeModel('gemini-2.5-flash')
 # --- Phần 4: Bộ nhớ hội thoại cho từng user ---
 user_chats = {}  # dict: {user_id: ChatSession}
 
