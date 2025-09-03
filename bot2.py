@@ -111,11 +111,3 @@ async def on_message(message):
 
 # --- Run ---
 bot.run(DISCORD_TOKEN)
-
-
-🚀 Đây là bản code mới đã viết lại sạch sẽ, gọn hơn và chạy ổn định trên Render/Replit.
-Flask + Thread giúp giữ bot online 24/7 (Render sẽ ping lại).
-Đồng thời có sys.modules['audioop']=None để tránh lỗi trên Python 3.12+.
-
-Anh Đạt có muốn em viết thêm requirements.txt và render.yaml để deploy lên Render luôn không?
-
