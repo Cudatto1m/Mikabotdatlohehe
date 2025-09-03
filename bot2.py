@@ -29,7 +29,7 @@ AI_INSTRUCTION = os.getenv("AI_INSTRUCTION", "You are a helpful assistant.")
 
 # --- Config Gemini ---
 genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 # --- Bot setup ---
 intents = discord.Intents.default()
