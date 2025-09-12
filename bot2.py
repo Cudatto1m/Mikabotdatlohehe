@@ -35,7 +35,7 @@ def hoiai(user_id: int, username: str, question: str) -> str:
         if user_id not in user_chats:
             user_chats[user_id] = model.start_chat(history=[])
         if user_id == OWNER_ID:
-            display_name = "anh Đạt"
+            display_name = "Anh Đạt"
         else:
             display_name = username
         if not user_chats[user_id].history:
