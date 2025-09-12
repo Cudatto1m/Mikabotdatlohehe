@@ -88,7 +88,7 @@ async def on_ready():
 async def set_chat_channel(interaction: discord.Interaction):
     global chat_channel_id
     chat_channel_id = interaction.channel_id
-    await interaction.response.send_message(f"✅ Kênh này (<#{chat_channel_id}>) đã được thiết lập là kênh chat AI tự động.")
+    await interaction.response.send_message(f"✅ Dạ Mikasa sẽ trả lời ở kênh này ạ.(<#{chat_channel_id}>)ở chỗ khác thì có thể @ để em trả lời")
     print(f"Kênh chat AI được thiết lập: {interaction.channel.name} (ID: {chat_channel_id})")
 
 @bot.tree.command(name="unset_chat_channel", description="Hủy bỏ kênh bot tự động trả lời.")
@@ -119,8 +119,8 @@ async def on_message(message):
     global chat_channel_id
     if message.author == bot.user:
         return
-    if message.content.lower().startswith('alo mikasa!'):
-        await message.channel.send(f'dạ {message.author.mention}, em còn on ạ 😚')
+    if message.content.lower().startswith('Mika!'):
+        await message.channel.send(f'dạ {message.author.mention},em đây😚')
         return
     is_in_chat_channel = (message.channel.id == chat_channel_id)
     is_bot_mentioned = bot.user.mentioned_in(message)
@@ -144,7 +144,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is alive!"
+    return "sống!"
 
 def run():
     app.run(host='0.0.0.0', port=5000)
