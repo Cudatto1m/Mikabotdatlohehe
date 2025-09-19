@@ -84,10 +84,15 @@ async def on_ready():
         print(f"Lỗi khi đồng bộ lệnh: {e}")
 
 #lệnh/
-@bot.tree.command(name="text", description="bot will help you print out the text you want to say ")
-async def text(interaction: discord.Interaction, printer: str, ephemeral: bool):
-    await interaction.response.send_message(printer, ephemeral=ephemeral)
-
+@bot.tree.command(name="text", description="Bot sẽ gửi tin nhắn bạn muốn vào kênh mà không để lộ danh tính")
+async def text(interaction: discord.Interaction, printer: str):
+    await interaction.response.defer(ephemeral=True)
+    await interaction.channel.send(printer)
+@bot.tree.command(name="clear", description="Xóa tin nhắn")
+async def clear(interaction: discord.Interaction, amount: int):
+    await interaction.response.send_message("Đang dọn dẹp tin nhắn...", ephemeral=True)
+    await interaction.channel.purge(limit=amount)
+    await interaction.channel.send(f"✅ Đã dọn dẹp {amount} tin nhắn.")
 @bot.tree.command(name="set_channel", description="Thiết lập kênh này là kênh bot tự động trả lời.")
 @commands.has_permissions(manage_channels=True)
 async def set_channel(interaction: discord.Interaction):
