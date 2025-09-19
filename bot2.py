@@ -86,11 +86,11 @@ async def on_ready():
 #lệnh/
 @bot.tree.command(name="text", description="The bot will print out the text you want to send")
 async def text(interaction: discord.Interaction, printer: str):
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.send_message(f"Ok I will send {printer}to this chat", ephemeral=True)
     await interaction.channel.send(printer)
 @bot.tree.command(name="clear", description="Xóa tin nhắn")
 async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.response.send_message("Đang dọn dẹp tin nhắn...", ephemeral=True)
+    await interaction.response.send_message(f"Ok dọn {amount}", ephemeral=True)
     await interaction.channel.purge(limit=amount)
     await interaction.channel.send(f"✅ Đã dọn dẹp {amount} tin nhắn.", ephemeral=True)
 @bot.tree.command(name="set_channel", description="Thiết lập kênh này là kênh bot tự động trả lời.")
