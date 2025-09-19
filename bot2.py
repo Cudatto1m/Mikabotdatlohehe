@@ -84,7 +84,7 @@ async def on_ready():
         print(f"Lỗi khi đồng bộ lệnh: {e}")
 
 #lệnh/
-@bot.tree.command(name="text", description="Bot sẽ gửi tin nhắn bạn muốn vào kênh mà không để lộ danh tính")
+@bot.tree.command(name="text", description="The bot will print out the text you want to send")
 async def text(interaction: discord.Interaction, printer: str):
     await interaction.response.defer(ephemeral=True)
     await interaction.channel.send(printer)
