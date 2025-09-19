@@ -92,7 +92,7 @@ async def text(interaction: discord.Interaction, printer: str):
 async def clear(interaction: discord.Interaction, amount: int):
     await interaction.response.send_message("Đang dọn dẹp tin nhắn...", ephemeral=True)
     await interaction.channel.purge(limit=amount)
-    await interaction.channel.send(f"✅ Đã dọn dẹp {amount} tin nhắn.")
+    await interaction.channel.send(f"✅ Đã dọn dẹp {amount} tin nhắn.", ephemeral=True)
 @bot.tree.command(name="set_channel", description="Thiết lập kênh này là kênh bot tự động trả lời.")
 @commands.has_permissions(manage_channels=True)
 async def set_channel(interaction: discord.Interaction):
