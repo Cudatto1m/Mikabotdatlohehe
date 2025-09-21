@@ -1,0 +1,70 @@
+import discord
+from discord.ext import commands
+import os
+import json
+from dotenv import load_dotenv  
+load_dotenv()
+tokenbot = os.getenv("tokexq") 
+OWNER_ID = 1067374135220649985
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+bot = commands.Bot(command_prefix='!', intents=intents)
+chat_channel_id = None
+
+def load_admins():
+    if not os.path.exists("admins.json"):
+        with open("admins.json", "w") as f:
+            json.dump({"admins": [OWNER_ID]}, f, indent=4)
+    with open("admins.json", "r") as f:
+        return json.load(f)["admins"]
+
+def save_admins(admins):
+    with open("admins.json", "w") as f:
+        json.dump({"admins": admins}, f, indent=4)
+
+admins = load_admins()
+
+@bot.event
+async def on_ready():
+    print(f'Bot {bot.user} đã online rồi 😎')
+    try:
+        synced = await bot.tree.sync()
+        print(f"Đã sync {len(synced)} lệnh.")
+    except Exception as e:
+        print(f"Lỗi sync: {e}")
+
+@bot.tree.command(name="addadmin", description="Thêm 1 admin mới (chỉ Đạt dùng được)")
+async def add_admin(interaction: discord.Interaction, user_id: int):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Bạn không có quyền dùng lệnh này!", ephemeral=True)
+        return
+    if user_id in admins:
+        await interaction.response.send_message("⚠️ Người này đã là admin rồi!", ephemeral=True)
+    else:
+        admins.append(user_id)
+        save_admins(admins)
+        await interaction.response.send_message(f"✅ Đã thêm <@{user_id}> làm admin!", ephemeral=False)
+
+@bot.tree.command(name="removeadmin", description="Xóa 1 admin (chỉ Đạt dùng được)")
+async def remove_admin(interaction: discord.Interaction, user_id: int):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Bạn không có quyền dùng lệnh này!", ephemeral=True)
+        return
+    if user_id not in admins:
+        await interaction.response.send_message("⚠️ Người này không phải admin!", ephemeral=True)
+    else:
+        admins.remove(user_id)
+        save_admins(admins)
+        await interaction.response.send_message(f"🗑️ Đã xóa <@{user_id}> khỏi admin!", ephemeral=False)
+
+@bot.tree.command(name="text", description="Nhập để Xuân Quỳnh gửi vào chat")
+async def text(interaction: discord.Interaction, inra: str):
+    if interaction.user.id not in admins:
+        await interaction.response.send_message("❌ bạn làm gì có quyền để gửi tin nhắn này!", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"✅ [{inra}] đã được gửi", ephemeral=True)
+        await interaction.channel.send(inra)
+
+bot.run(tokenbot)
