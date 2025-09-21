@@ -4,7 +4,7 @@ import os
 import json
 from dotenv import load_dotenv  
 load_dotenv()
-tokenbot = os.getenv("tokexq") 
+tokenbot = os.getenv("TOKENBOT") 
 OWNER_ID = 1067374135220649985
 
 intents = discord.Intents.default()
