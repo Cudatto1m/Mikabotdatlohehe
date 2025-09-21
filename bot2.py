@@ -3,8 +3,60 @@ import discord
 from discord.ext import commands
 import google.generativeai as genai
 import os
+import json
 from flask import Flask
 from threading import Thread
+from datetime import timedelta
+from discord import app_commands
+
+# --- Clear tin nhắn ---
+@bot.tree.command(name="clear", description="Xóa tin nhắn trong kênh")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int):
+    await interaction.response.send_message(f"🧹 Đang xóa {amount} tin nhắn...", ephemeral=True)
+    await interaction.channel.purge(limit=amount)
+
+# --- Ban user ---
+@bot.tree.command(name="ban", description="Ban 1 user khỏi server")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, user: discord.User, reason: str = "Không có lý do"):
+    try:
+        await interaction.guild.ban(user, reason=reason)
+        await interaction.response.send_message(f"🚫 {user.mention} đã bị ban. Lý do: {reason}")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
+
+# --- Unban user ---
+@bot.tree.command(name="unban", description="Gỡ ban một user bằng ID")
+@app_commands.checks.has_permissions(ban_members=True)
+async def unban(interaction: discord.Interaction, user_id: int):
+    try:
+        user = await bot.fetch_user(user_id)
+        await interaction.guild.unban(user)
+        await interaction.response.send_message(f"✅ {user.mention} đã được gỡ ban")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
+
+# --- Mute user ---
+@bot.tree.command(name="mute", description="Cấm chat 1 user trong một khoảng thời gian (phút)")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def mute(interaction: discord.Interaction, user: discord.User, minutes: int):
+    try:
+        duration = discord.utils.utcnow() + timedelta(minutes=minutes)
+        await user.timeout(duration, reason=f"Mute {minutes} phút")
+        await interaction.response.send_message(f"🔇 {user.mention} đã bị mute {minutes} phút!")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
+
+# --- Unmute user ---
+@bot.tree.command(name="unmute", description="Gỡ mute một user")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def unmute(interaction: discord.Interaction, user: discord.User):
+    try:
+        await user.timeout(None)  # Gỡ timeout
+        await interaction.response.send_message(f"🔊 {user.mention} đã được gỡ mute!")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
 
 sys.modules['audioop'] = None
 from dotenv import load_dotenv
@@ -27,7 +79,21 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 # --- Phần 3: Bộ nhớ hội thoại cho từng user ---
 user_chats = {}
 OWNER_ID = 1067374135220649985  
+# --- Quản lý danh sách admin qua file JSON ---
+ADMIN_FILE = "admins.json"
 
+def load_admins():
+    if not os.path.exists(ADMIN_FILE):
+        with open(ADMIN_FILE, "w") as f:
+            json.dump({"admins": [OWNER_ID]}, f, indent=4)
+    with open(ADMIN_FILE, "r") as f:
+        return json.load(f)["admins"]
+
+def save_admins(admins):
+    with open(ADMIN_FILE, "w") as f:
+        json.dump({"admins": admins}, f, indent=4)
+
+admins = load_admins()  # load danh sách admin khi bot khởi động
 # Hàm hoiai không phải async, nên bỏ await khi gọi
 def hoiai(user_id: int, username: str, question: str) -> str:
     global user_chats
@@ -88,11 +154,31 @@ async def on_ready():
 async def text(interaction: discord.Interaction, printer: str):
     await interaction.response.send_message(f"Ok em sẽ gửi {printer} vào chat này", ephemeral=True)
     await interaction.channel.send(printer)
-@bot.tree.command(name="clear", description="Xóa tin nhắn")
-async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.response.send_message(f"Ok dọn {amount}", ephemeral=True)
-    await interaction.channel.purge(limit=amount)
-    await interaction.channel.send(f"✅ Đã dọn dẹp {amount} tin nhắn.", ephemeral=True)
+    
+@bot.tree.command(name="clear", description="Xóa tin nhắn trong kênh, có thể chọn user")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int, user: discord.User = None):
+    await interaction.response.send_message("🧹 Đang dọn tin nhắn...", ephemeral=True)
+
+    def check_user(msg):
+        return msg.author == user if user else True
+
+    deleted = await interaction.channel.purge(limit=amount, check=check_user)
+    if user:
+        await interaction.followup.send(f"✅ Đã xóa {len(deleted)} tin nhắn của {user.mention}", ephemeral=True)
+    else:
+        await interaction.followup.send(f"✅ Đã xóa {len(deleted)} tin nhắn gần nhất", ephemeral=True)
+ 
+@bot.tree.command(name="mute", description="Cấm chat 1 user trong một khoảng thời gian (phút)")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def mute(interaction: discord.Interaction, user: discord.User, minutes: int):
+    try:
+        duration = discord.utils.utcnow() + timedelta(minutes=minutes)
+        await user.timeout(duration, reason=f"Mute {minutes} phút")
+        await interaction.response.send_message(f"🔇 {user.mention} đã bị mute {minutes} phút!")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
+        
 @bot.tree.command(name="set_channel", description="Thiết lập kênh này là kênh bot tự động trả lời.")
 @commands.has_permissions(manage_channels=True)
 async def set_channel(interaction: discord.Interaction):
@@ -122,7 +208,14 @@ async def reset(interaction: discord.Interaction):
     global user_chats
     user_chats[interaction.user.id] = model.start_chat(history=[])
     await interaction.response.send_message("🧹 Bộ nhớ hội thoại AI của bạn đã được reset!")
-
+@bot.tree.command(name="ban", description="Ban 1 user khỏi server")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, user: discord.User, reason: str = "Không có lý do"):
+    try:
+        await interaction.guild.ban(user, reason=reason)
+        await interaction.response.send_message(f"🚫 {user.mention} đã bị ban. Lý do: {reason}")
+    except Exception as e:
+        await interaction.response.send_message(f"⚠️ Lỗi: {e}", ephemeral=True)
 @bot.event
 async def on_message(message):
     global chat_channel_id
@@ -169,4 +262,4 @@ def keep_alive():
 print("Đang khởi động web server...")
 keep_alive()
 print("Đang khởi động bot...")
-bot.run(DISCORD_TOKEN)
+bot.run(DISCORD_TOKEN) #chạy bot
